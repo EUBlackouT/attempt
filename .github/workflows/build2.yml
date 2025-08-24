@@ -1,18 +1,20 @@
+# .github/workflows/build.yml
 name: build
 on: { workflow_dispatch: {} }
+
 jobs:
   build:
     runs-on: ubuntu-latest
+    container: devkitpro/devkitarm:latest  # devkitARM preinstalled
     steps:
       - uses: actions/checkout@v4
         with: { submodules: recursive }
-      - name: Install devkitARM + deps
+
+      - name: Install build deps
         run: |
-          sudo apt update
-          sudo apt install -y make git python3 libpng-dev zlib1g-dev bison flex texinfo perl curl
-          curl -L https://pkg.devkitpro.org/install-devkitpro-pacman | sudo bash
-          sudo dkp-pacman -Syu --noconfirm
-          sudo dkp-pacman -S --noconfirm devkitARM
+          apt-get update
+          apt-get install -y make git python3 libpng-dev zlib1g-dev bison flex texinfo perl
+
       - name: Build agbcc
         run: |
           cd tools/agbcc
@@ -21,17 +23,20 @@ jobs:
           bash ./install.sh .
           cd -
           tar czf agbcc-bin.tar.gz -C tools/agbcc bin gcc ginclude include lib libgcc libiberty
+
       - name: Build tools
         run: |
           make clean-tools
-          make tools -j$(nproc)
+          make tools -j"$(nproc)"
+
       - name: Build ROM
         env:
           DEVKITPRO: /opt/devkitpro
           DEVKITARM: /opt/devkitpro/devkitARM
           GCC_EXEC_PREFIX: ${{ github.workspace }}/tools/agbcc/
           PATH: /opt/devkitpro/devkitARM/bin:${{ env.PATH }}
-        run: make -j$(nproc)
+        run: make -j"$(nproc)"
+
       - uses: actions/upload-artifact@v4
         with:
           name: outputs
